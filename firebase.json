@@ -20,7 +20,7 @@
     }
   ],
   "hosting": {
-    "public": "dist/mural-take-home-spa",
+    "public": "mural-take-home-spa/dist/mural-take-home-spa/browser/",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {

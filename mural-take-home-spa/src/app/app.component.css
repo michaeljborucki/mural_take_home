@@ -16,3 +16,22 @@
   .text-red {
     color: red;
   }
+  .location-info {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+  }
+  .location-info mat-icon {
+    margin-right: 8px;
+    font-size: 18px;
+  }
+  .warning-banner {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background-color: #fff3e0;
+    color: #e65100;
+  }
+  .warning-banner mat-icon {
+    margin-right: 8px;
+  }

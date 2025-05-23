@@ -53,7 +53,48 @@ export class CreatePayoutDetailDialogComponent {
     zip: ''
   };
   
-  
+  sample_payload = {
+    "sourceAccountId": "",
+    "memo": "December contract",
+    "payouts": [
+      {
+        "amount": {
+          "tokenSymbol": "USDC",
+          "tokenAmount": 5
+        },
+        "payoutDetails": {
+          "type": "fiat",
+          "bankName": "Bancamia S.A.",
+          "bankAccountOwner": "test",
+          "fiatAndRailDetails": {
+              "type": "cop",
+              "symbol": "COP",
+              "accountType": "CHECKING",
+              "phoneNumber": "+57 601 555 5555",
+              "bankAccountNumber": "1234567890123456",
+              "documentNumber": "1234563",
+              "documentType": "NATIONAL_ID"
+            }
+        },
+        "recipientInfo": {
+          "type": "individual",
+          "firstName": "Javier",
+          "lastName": "Gomez",
+          "email": "jgomez@gmail.com",
+          "dateOfBirth": "1980-02-22",
+          "physicalAddress": {
+            "address1": "Cra. 37 #10A 29",
+            "country": "CO",
+            "state": "Antioquia",
+            "city": "Medellin",
+            "zip": "050015"
+          }
+        }
+      }
+    ]
+  }
+
+
   errorMessage = '';
 
   isSubmitting = false;
@@ -70,5 +111,11 @@ export class CreatePayoutDetailDialogComponent {
 
   onCancel(): void {
     this.dialogRef.close(null);
+  }
+
+  sendSample(): void{
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+    this.dialogRef.close(this.sample_payload);
   }
 }

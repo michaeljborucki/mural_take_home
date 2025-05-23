@@ -106,8 +106,10 @@ export class AccountDetailComponent implements OnInit {
     
       dialogRef.afterClosed().subscribe((result) => {
         if (result) {
+          if (result.sourceAccountId === ''){
+            result.sourceAccountId = this.accountId
+          }
           this.payoutService.createPayout(this.orgId, result).subscribe({
-
           });
         }
       });

@@ -1,26 +1,94 @@
 import logging
 import json
+import uuid
+import time
 from datetime import datetime
+from functools import wraps
 
 import requests
 from firebase_admin import initialize_app
 from firebase_functions import https_fn
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from google.cloud import secretmanager
 
-# Configure logging with more detailed format
+# Configure logging with structured format
+class StructuredLogger:
+    def __init__(self, logger):
+        self.logger = logger
+
+    def _log(self, level, msg, **kwargs):
+        log_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'message': msg,
+            'correlation_id': getattr(g, 'correlation_id', 'N/A'),
+            **kwargs
+        }
+        getattr(self.logger, level)(json.dumps(log_data))
+
+    def info(self, msg, **kwargs):
+        self._log('info', msg, **kwargs)
+
+    def error(self, msg, **kwargs):
+        self._log('error', msg, **kwargs)
+
+    def debug(self, msg, **kwargs):
+        self._log('debug', msg, **kwargs)
+
+    def warning(self, msg, **kwargs):
+        self._log('warning', msg, **kwargs)
+
+# Configure base logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-logger = logging.getLogger(__name__)
+base_logger = logging.getLogger(__name__)
+logger = StructuredLogger(base_logger)
 
 initialize_app()
 app = Flask(__name__)
 CORS(app, resources={r"/organizations*": {"origins": "http://localhost:4200"}})
 base_url = 'https://api-staging.muralpay.com/api'
+
+def log_request_info():
+    """Log detailed request information"""
+    g.correlation_id = str(uuid.uuid4())
+    g.start_time = time.time()
+    
+    request_data = {
+        'method': request.method,
+        'path': request.path,
+        'headers': dict(request.headers),
+        'query_params': dict(request.args),
+        'body': request.get_json(silent=True)
+    }
+    
+    logger.info('Incoming request', request_data=request_data)
+
+def log_response_info(response):
+    """Log detailed response information"""
+    duration = time.time() - g.start_time
+    
+    response_data = {
+        'status_code': response.status_code,
+        'headers': dict(response.headers),
+        'duration_ms': round(duration * 1000, 2)
+    }
+    
+    logger.info('Outgoing response', response_data=response_data)
+    return response
+
+@app.before_request
+def before_request():
+    log_request_info()
+
+@app.after_request
+def after_request(response):
+    response = log_response_info(response)
+    response = apply_cors_headers(response)
+    return response
 
 @app.after_request
 def apply_cors_headers(response):
@@ -33,45 +101,66 @@ def apply_cors_headers(response):
 
 # --- Secret Helper ---
 def get_secret(secret_id: str) -> str:
-    logger.info(f"Fetching secret: {secret_id}")
+    logger.info('Fetching secret', secret_id=secret_id)
     try:
         client = secretmanager.SecretManagerServiceClient()
         project_id = 'mural-take-home-e3b8b'
         name = f'projects/{project_id}/secrets/{secret_id}/versions/latest'
         response = client.access_secret_version(request={"name": name})
-        logger.debug(f"Successfully retrieved secret: {secret_id}")
+        logger.debug('Secret retrieved successfully', secret_id=secret_id)
         return response.payload.data.decode("UTF-8").strip()
     except Exception as e:
-        logger.error(f"Failed to fetch secret {secret_id}: {str(e)}")
+        logger.error('Failed to fetch secret', 
+                    secret_id=secret_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         raise
 
 
 # --- MuralPay API Calls ---
 def tos_call(org, headers):
-    logger.info(f"Checking TOS status for organization: {org['id']}")
+    logger.info('Checking TOS status', org_id=org['id'])
     if org['tosStatus'] != 'ACCEPTED':
         tos_url = f"{base_url}/organizations/{org['id']}/tos-link"
-        logger.debug(f"Making TOS API call to: {tos_url}")
-        response = requests.get(tos_url, headers=headers)
-        response.raise_for_status()
-        response_json = response.json()
-        logger.info(f"TOS link generated for org {org['id']}: {response_json['tosLink']}")
-        return response_json['tosLink']
-    logger.info(f"TOS already accepted for org {org['id']}")
+        logger.debug('Making TOS API call', url=tos_url)
+        try:
+            response = requests.get(tos_url, headers=headers)
+            response.raise_for_status()
+            response_json = response.json()
+            logger.info('TOS link generated', 
+                       org_id=org['id'],
+                       tos_link=response_json['tosLink'])
+            return response_json['tosLink']
+        except requests.exceptions.RequestException as e:
+            logger.error('TOS API call failed',
+                        org_id=org['id'],
+                        error=str(e),
+                        status_code=getattr(e.response, 'status_code', None))
+            raise
+    logger.info('TOS already accepted', org_id=org['id'])
     return org['tosStatus']
 
 
 def kyc_call(org, headers):
-    logger.info(f"Checking KYC status for organization: {org['id']}")
+    logger.info('Checking KYC status', org_id=org['id'])
     if org['tosStatus'] != 'INACTIVE':
         kyc_url = f"{base_url}/organizations/{org['id']}/kyc-link"
-        logger.debug(f"Making KYC API call to: {kyc_url}")
-        response = requests.get(kyc_url, headers=headers)
-        response.raise_for_status()
-        response_json = response.json()
-        logger.info(f"KYC link generated for org {org['id']}: {response_json['kycLink']}")
-        return response_json['kycLink']
-    logger.info(f"KYC status inactive for org {org['id']}")
+        logger.debug('Making KYC API call', url=kyc_url)
+        try:
+            response = requests.get(kyc_url, headers=headers)
+            response.raise_for_status()
+            response_json = response.json()
+            logger.info('KYC link generated',
+                       org_id=org['id'],
+                       kyc_link=response_json['kycLink'])
+            return response_json['kycLink']
+        except requests.exceptions.RequestException as e:
+            logger.error('KYC API call failed',
+                        org_id=org['id'],
+                        error=str(e),
+                        status_code=getattr(e.response, 'status_code', None))
+            raise
+    logger.info('KYC status inactive', org_id=org['id'])
     return org['kycStatus']
 
 
@@ -82,14 +171,22 @@ def organization_call(api_key: str, id: str):
         "content-type": "application/json",
         "authorization": f"Bearer {api_key}"
     }
-    logger.info(f"Fetching organization with ID {id}")
+    logger.info('Fetching organization', org_id=id)
     try:
+        start_time = time.time()
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        logger.debug(f"Organization data retrieved successfully: {json.dumps(response.json(), indent=2)}")
+        duration = time.time() - start_time
+        logger.debug('Organization data retrieved',
+                    org_id=id,
+                    duration_ms=round(duration * 1000, 2),
+                    response_data=response.json())
         return response.json(), response.status_code
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch organization {id}: {str(e)}")
+        logger.error('Failed to fetch organization',
+                    org_id=id,
+                    error=str(e),
+                    status_code=getattr(e.response, 'status_code', None))
         raise
 
 
@@ -101,25 +198,31 @@ def organization_list_call(api_key: str):
         "content-type": "application/json",
         "authorization": f"Bearer {api_key}"
     }
-    logger.info("Fetching organization list")
+    logger.info('Fetching organization list')
     try:
+        start_time = time.time()
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
+        duration = time.time() - start_time
         org_list = response.json()['results']
-        logger.debug(f"Retrieved {len(org_list)} organizations")
+        logger.debug('Retrieved organizations',
+                    count=len(org_list),
+                    duration_ms=round(duration * 1000, 2))
         
         for org in org_list:
-            logger.info(f"Processing organization: {org['id']}")
+            logger.info('Processing organization', org_id=org['id'])
             org['tosStatus'] = tos_call(org, headers)
             if org['tosStatus'] == 'ACCEPTED' and org['kycStatus']['type'] == 'INACTIVE':
                 kyc_dict = org['kycStatus']
                 kyc_dict['kycUrl'] = kyc_call(org, headers)
                 org['kycStatus'] = kyc_dict
-                logger.debug(f"Updated KYC status for org {org['id']}")
+                logger.debug('Updated KYC status', org_id=org['id'])
         
         return org_list, response.status_code
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch organization list: {str(e)}")
+        logger.error('Failed to fetch organization list',
+                    error=str(e),
+                    status_code=getattr(e.response, 'status_code', None))
         raise
 
 
@@ -227,227 +330,241 @@ def search_payout_requests(api_key: str, org_id: str, payload: dict):
 @app.route("/organizations/<org_id>", methods=["GET", "OPTIONS"])
 def get_organization(org_id):
     if request.method == 'OPTIONS':
-        logger.debug(f"Handling OPTIONS request for organization {org_id}")
+        logger.debug('Handling OPTIONS request', org_id=org_id)
         return '', 204
     try:
-        logger.info(f"Processing GET request for organization {org_id}")
+        logger.info('Processing GET request', org_id=org_id)
         api_key = get_secret("API_KEY")
         data, status = organization_call(api_key, org_id)
-        logger.debug(f"Organization data retrieved: {json.dumps(data, indent=2)}")
+        logger.debug('Organization data retrieved', 
+                    org_id=org_id,
+                    status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception(f"Error fetching organization {org_id}: {str(e)}")
+        logger.error('Error fetching organization',
+                    org_id=org_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/organizations", methods=["GET", "OPTIONS"])
 def get_organizations():
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for organizations list')
         return '', 204
     try:
+        logger.info('Processing GET request for organizations list')
         api_key = get_secret("API_KEY")
         data, status = organization_list_call(api_key)
+        logger.debug('Organizations list retrieved',
+                    count=len(data),
+                    status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception("Error listing organizations:")
+        logger.error('Error fetching organizations list',
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/organizations", methods=["POST", "OPTIONS"])
 def create_organization():
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for organization creation')
         return '', 204
     try:
+        logger.info('Processing POST request for organization creation')
         api_key = get_secret("API_KEY")
         body = request.get_json()
+        logger.debug('Organization creation request',
+                    request_body=body)
         data, status = create_organization_call(api_key, body)
+        logger.info('Organization created successfully',
+                   org_id=data.get('id'),
+                   status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception("Error creating organization:")
+        logger.error('Error creating organization',
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/accounts/<org_id>", methods=["GET", "OPTIONS"])
 def get_accounts(org_id):
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for accounts list', org_id=org_id)
         return '', 204
     try:
+        logger.info('Processing GET request for accounts list', org_id=org_id)
         api_key = get_secret("API_KEY")
         data, status = account_list_call(api_key, org_id)
+        logger.debug('Accounts list retrieved',
+                    org_id=org_id,
+                    count=len(data),
+                    status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception("Error listing organizations:")
+        logger.error('Error fetching accounts list',
+                    org_id=org_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/accounts/<org_id>/<account_id>", methods=["GET", "OPTIONS"])
 def get_account_by_id(org_id, account_id):
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for account',
+                    org_id=org_id,
+                    account_id=account_id)
         return '', 204
     try:
+        logger.info('Processing GET request for account',
+                   org_id=org_id,
+                   account_id=account_id)
         api_key = get_secret("API_KEY")
         data, status = account_call(api_key, org_id, account_id)
+        logger.debug('Account data retrieved',
+                    org_id=org_id,
+                    account_id=account_id,
+                    status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception("Error listing account by id:")
+        logger.error('Error fetching account',
+                    org_id=org_id,
+                    account_id=account_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/accounts/<org_id>", methods=["POST", "OPTIONS"])
 def create_account(org_id):
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for account creation', org_id=org_id)
         return '', 204
     try:
+        logger.info('Processing POST request for account creation', org_id=org_id)
         api_key = get_secret("API_KEY")
-        data, status = create_account_call(api_key, org_id, request.get_json())
+        body = request.get_json()
+        logger.debug('Account creation request',
+                    org_id=org_id,
+                    request_body=body)
+        data, status = create_account_call(api_key, org_id, body)
+        logger.info('Account created successfully',
+                   org_id=org_id,
+                   account_id=data.get('id'),
+                   status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception("Error listing accounts:")
+        logger.error('Error creating account',
+                    org_id=org_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/payouts/<org_id>/<acc_id>", methods=["POST", "OPTIONS"])
 def get_payout_requests(org_id, acc_id):
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for payout requests',
+                    org_id=org_id,
+                    account_id=acc_id)
         return '', 204
     try:
+        logger.info('Processing POST request for payout requests',
+                   org_id=org_id,
+                   account_id=acc_id)
         api_key = get_secret("API_KEY")
-        data, status = search_payout_requests(api_key, org_id, request.get_json())
-        filtered_payout_requests = [p for p in data['results'] if p.get("sourceAccountId") == acc_id]
-        return jsonify(filtered_payout_requests), status
+        body = request.get_json()
+        logger.debug('Payout requests search request',
+                    org_id=org_id,
+                    account_id=acc_id,
+                    request_body=body)
+        data, status = search_payout_requests(api_key, org_id, body)
+        logger.info('Payout requests retrieved successfully',
+                   org_id=org_id,
+                   account_id=acc_id,
+                   count=len(data.get('results', [])),
+                   status_code=status)
+        return jsonify(data), status
     except Exception as e:
-        logger.exception("Error listing accounts:")
+        logger.error('Error fetching payout requests',
+                    org_id=org_id,
+                    account_id=acc_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/payouts/<org_id>/<acc_id>/<payout_id>", methods=["POST", "OPTIONS"])
 def execute_payout_requests(org_id, acc_id, payout_id):
     if request.method == 'OPTIONS':
+        logger.debug('Handling OPTIONS request for payout execution',
+                    org_id=org_id,
+                    account_id=acc_id,
+                    payout_id=payout_id)
         return '', 204
     try:
+        logger.info('Processing POST request for payout execution',
+                   org_id=org_id,
+                   account_id=acc_id,
+                   payout_id=payout_id)
         api_key = get_secret("API_KEY")
         transfer_api_key = get_secret("TRANSFER_API_KEY")
         data, status = execute_payout_request(api_key, transfer_api_key, org_id, payout_id)
-        filtered_payout_requests = [p for p in data['results'] if p.get("sourceAccountId") == acc_id]
-        return jsonify(filtered_payout_requests), status
+        logger.info('Payout executed successfully',
+                   org_id=org_id,
+                   account_id=acc_id,
+                   payout_id=payout_id,
+                   status_code=status)
+        return jsonify(data), status
     except Exception as e:
-        logger.exception("Error listing accounts:")
+        logger.error('Error executing payout',
+                    org_id=org_id,
+                    account_id=acc_id,
+                    payout_id=payout_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/payouts/create/<org_id>", methods=["POST", "OPTIONS"])
 def create_payout_requests(org_id):
     if request.method == 'OPTIONS':
-        logger.debug(f"Handling OPTIONS request for payout creation {org_id}")
+        logger.debug('Handling OPTIONS request for payout creation', org_id=org_id)
         return '', 204
     try:
-        logger.info(f"Processing payout creation request for organization {org_id}")
-        request_data = request.get_json()
-        logger.debug(f"Payout request payload: {json.dumps(request_data, indent=2)}")
-        
+        logger.info('Processing POST request for payout creation', org_id=org_id)
         api_key = get_secret("API_KEY")
-        data, status = create_payout_request(api_key, org_id, request_data)
-        logger.info(f"Payout request created successfully for org {org_id}")
-        logger.debug(f"Payout response: {json.dumps(data, indent=2)}")
+        body = request.get_json()
+        logger.debug('Payout creation request',
+                    org_id=org_id,
+                    request_body=body)
+        data, status = create_payout_request(api_key, org_id, body)
+        logger.info('Payout created successfully',
+                   org_id=org_id,
+                   payout_id=data.get('id'),
+                   status_code=status)
         return jsonify(data), status
     except Exception as e:
-        logger.exception(f"Error creating payout request for org {org_id}: {str(e)}")
+        logger.error('Error creating payout',
+                    org_id=org_id,
+                    error=str(e),
+                    error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 # --- Firebase Entry Point ---
 @https_fn.on_request()
 def main_function(request):
-    logger.info(f"Received request: {request.method} {request.path}")
-    logger.debug(f"Request headers: {dict(request.headers)}")
-    return app(request.environ, start_response=lambda *a, **k: None)
-
-
-# if __name__ == '__main__':
-#     api_key = 'af3c4c9a81048415cb20d344:a8826b1e7b583e720a81682aaea980eb8568c5ae91a1e4621968cde2978fa5dfe30b65c4:9513247a62f3c46899d509d2c5eac889.856ce7ec710d47f62d3f2459c142a9ccc92b79a2bd1c78c3376654aa3ff4c262'
-#     transfer_api_key = '55c733176e867cfe949688ef:43bf33f8e38dd6b4fa19bf99a5d5e46f31503d770fa7a61af582e27a5717bf5338ee8102:07f2af0dc2c5e79a190130058025aa5c.94717a395bc45e4901aa43b6297dc8c74e323469a515051d60da842deea77814'
-#
-#     sample_payload = {
-#         "sourceAccountId": "639bb127-0b32-4e63-90fd-099356b046c6",
-#         "memo": "December contract",
-#         "payouts": [
-#             {
-#                 "amount": {
-#                     "tokenSymbol": "USDC",
-#                     "tokenAmount": 2
-#                 },
-#                 "payoutDetails": {
-#                     "type": "fiat",
-#                     "bankName": "Bancamia S.A.",
-#                     "bankAccountOwner": "test",
-#                     "fiatAndRailDetails": {
-#                         "type": "cop",
-#                         "symbol": "COP",#     sample_payload = {
-# #         "sourceAccountId": "639bb127-0b32-4e63-90fd-099356b046c6",
-# #         "memo": "December contract",
-# #         "payouts": [
-# #             {
-# #                 "amount": {
-# #                     "tokenSymbol": "USDC",
-# #                     "tokenAmount": 2
-# #                 },
-# #                 "payoutDetails": {
-# #                     "type": "fiat",
-# #                     "bankName": "Bancamia S.A.",
-# #                     "bankAccountOwner": "test",
-# #                     "fiatAndRailDetails": {
-# #                         "type": "cop",
-# #                         "symbol": "COP",
-# #                         "accountType": "CHECKING",
-# #                         "phoneNumber": "+57 601 555 5555",
-# #                         "bankAccountNumber": "1234567890123456",
-# #                         "documentNumber": "1234563",
-# #                         "documentType": "NATIONAL_ID"
-# #                     }
-# #                 },
-# #                 "recipientInfo": {
-# #                     "type": "individual",
-# #                     "firstName": "Javier",
-# #                     "lastName": "Gomez",
-# #                     "email": "jgomez@gmail.com",
-# #                     "dateOfBirth": "1980-02-22",
-# #                     "physicalAddress": {
-# #                         "address1": "Cra. 37 #10A 29",
-# #                         "country": "CO",
-# #                         "state": "Antioquia",
-# #                         "city": "Medellin",
-# #                         "zip": "050015"
-# #                     }
-# #                 }
-# #             }
-# #         ]
-# #     }
-#                         "accountType": "CHECKING",
-#                         "phoneNumber": "+57 601 555 5555",
-#                         "bankAccountNumber": "1234567890123456",
-#                         "documentNumber": "1234563",
-#                         "documentType": "NATIONAL_ID"
-#                     }
-#                 },
-#                 "recipientInfo": {
-#                     "type": "individual",
-#                     "firstName": "Javier",
-#                     "lastName": "Gomez",
-#                     "email": "jgomez@gmail.com",
-#                     "dateOfBirth": "1980-02-22",
-#                     "physicalAddress": {
-#                         "address1": "Cra. 37 #10A 29",
-#                         "country": "CO",
-#                         "state": "Antioquia",
-#                         "city": "Medellin",
-#                         "zip": "050015"
-#                     }
-#                 }
-#             }
-#         ]
-#     }
-#
-#     # accounts = account_list_call(api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1')
-#     # a = create_payout_request(api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1',
-#     #                         sample_payload)
-#     # id_2 = '0f35fd95-7df8-4db1-89eb-0f4da070a2ef'
-#     # execute_payout_request(api_key,transfer_api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1',
-#     #                        id_2)
-#     search_payout_requests(api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1', {})
+    logger.info('Processing main function request',
+                method=request.method,
+                path=request.path)
+    try:
+        with app.request_context(request.environ):
+            return app.full_dispatch_request()
+    except Exception as e:
+        logger.error('Error in main function',
+                    error=str(e),
+                    error_type=type(e).__name__)
+        return jsonify({"error": str(e)}), 500
