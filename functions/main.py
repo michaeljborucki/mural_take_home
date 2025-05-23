@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 initialize_app()
 app = Flask(__name__)
 CORS(app, resources={r"/organizations*": {"origins": "http://localhost:4200"}})
-
+base_url = 'https://api-staging.muralpay.com/api'
 
 @app.after_request
 def apply_cors_headers(response):
@@ -35,7 +35,7 @@ def get_secret(secret_id: str) -> str:
 # --- MuralPay API Calls ---
 def tos_call(org, headers):
     if org['tosStatus'] != 'ACCEPTED':
-        tos_url = f"https://api-staging.muralpay.com/api/organizations/{org['id']}/tos-link"
+        tos_url = f"{base_url}/organizations/{org['id']}/tos-link"
         response = requests.get(tos_url, headers=headers)
         response.raise_for_status()
         response_json = response.json()
@@ -45,7 +45,7 @@ def tos_call(org, headers):
 
 def kyc_call(org, headers):
     if org['tosStatus'] != 'INACTIVE':
-        kyc_url = f"https://api-staging.muralpay.com/api/organizations/{org['id']}/kyc-link"
+        kyc_url = f"{base_url}/organizations/{org['id']}/kyc-link"
         response = requests.get(kyc_url, headers=headers)
         response.raise_for_status()
         response_json = response.json()
@@ -54,7 +54,7 @@ def kyc_call(org, headers):
 
 
 def organization_call(api_key: str, id: str):
-    url = f"https://api-staging.muralpay.com/api/organizations/{id}"
+    url = f"{base_url}/organizations/{id}"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -67,7 +67,7 @@ def organization_call(api_key: str, id: str):
 
 
 def organization_list_call(api_key: str):
-    url = "https://api-staging.muralpay.com/api/organizations/search"
+    url = base_url + "/organizations/search"
     payload = {"filter": {"type": "name"}}
     headers = {
         "accept": "application/json",
@@ -88,7 +88,7 @@ def organization_list_call(api_key: str):
 
 
 def create_organization_call(api_key: str, body: dict):
-    url = "https://api-staging.muralpay.com/api/organizations"
+    url = base_url + "/organizations"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -101,7 +101,7 @@ def create_organization_call(api_key: str, body: dict):
 
 
 def account_call(api_key: str, org_id: str, account_id: str):
-    url = f"https://api-staging.muralpay.com/api/accounts/{account_id}"
+    url = f"{base_url}/accounts/{account_id}"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -116,7 +116,7 @@ def account_call(api_key: str, org_id: str, account_id: str):
 
 
 def account_list_call(api_key: str, org_id: str):
-    url = "https://api-staging.muralpay.com/api/accounts"
+    url = base_url + "/accounts"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -131,7 +131,7 @@ def account_list_call(api_key: str, org_id: str):
 
 
 def create_account_call(api_key: str, org_id: str, body: dict):
-    url = "https://api-staging.muralpay.com/api/accounts"
+    url = base_url + "/accounts"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -145,7 +145,7 @@ def create_account_call(api_key: str, org_id: str, body: dict):
 
 
 def create_payout_request(api_key: str, org_id: str, body: dict):
-    url = "https://api-staging.muralpay.com/api/payouts/payout"
+    url = base_url + "/payouts/payout"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -159,7 +159,7 @@ def create_payout_request(api_key: str, org_id: str, body: dict):
 
 
 def execute_payout_request(api_key: str, transfer_api_key: str, org_id: str, payout_id: str):
-    url = f"https://api-staging.muralpay.com/api/payouts/payout/{payout_id}/execute"
+    url = f"{base_url}/payouts/payout/{payout_id}/execute"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -173,12 +173,8 @@ def execute_payout_request(api_key: str, transfer_api_key: str, org_id: str, pay
     return response.json(), response.status_code
 
 
-def search_payout_requests(api_key: str, org_id: str,):
+def search_payout_requests(api_key: str, org_id: str, payload: dict):
     url = 'https://api-staging.muralpay.com/api/payouts/search'
-    payload = {"filter": {
-        "type": "payoutStatus",
-        "statuses": ["AWAITING_EXECUTION","CANCELED", "PENDING","EXECUTED", "FAILED"]
-    }}
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -186,9 +182,8 @@ def search_payout_requests(api_key: str, org_id: str,):
         "on-behalf-of": org_id
     }
     logging.info("Executing new payout request...")
-    response = requests.post(url,json=payload, headers=headers)
+    response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
-    r = response.json()
     return response.json(), response.status_code
 
 
@@ -255,7 +250,7 @@ def get_account_by_id(org_id, account_id):
         data, status = account_call(api_key, org_id, account_id)
         return jsonify(data), status
     except Exception as e:
-        logging.exception("Error listing organizations:")
+        logging.exception("Error listing account by id:")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/accounts/<org_id>", methods=["POST", "OPTIONS"])
@@ -267,9 +262,49 @@ def create_account(org_id):
         data, status = create_account_call(api_key, org_id, request.get_json())
         return jsonify(data), status
     except Exception as e:
-        logging.exception("Error listing organizations:")
+        logging.exception("Error listing accounts:")
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/payouts/<org_id>/<acc_id>", methods=["POST", "OPTIONS"])
+def get_payout_requests(org_id, acc_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        api_key = get_secret("API_KEY")
+        data, status = search_payout_requests(api_key, org_id, request.get_json())
+        filtered_payout_requests = [p for p in data['results'] if p.get("sourceAccountId") == acc_id]
+        return jsonify(filtered_payout_requests), status
+    except Exception as e:
+        logging.exception("Error listing accounts:")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/payouts/<org_id>/<acc_id>/<payout_id>", methods=["POST", "OPTIONS"])
+def execute_payout_requests(org_id, acc_id, payout_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        api_key = get_secret("API_KEY")
+        transfer_api_key = get_secret("TRANSFER_API_KEY")
+        data, status = execute_payout_request(api_key, transfer_api_key, org_id, payout_id)
+        filtered_payout_requests = [p for p in data['results'] if p.get("sourceAccountId") == acc_id]
+        return jsonify(filtered_payout_requests), status
+    except Exception as e:
+        logging.exception("Error listing accounts:")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/payouts/create/<org_id>", methods=["POST", "OPTIONS"])
+def create_payout_requests(org_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        api_key = get_secret("API_KEY")
+        data, status = create_payout_request(api_key, org_id, request.get_json())
+        return jsonify(data), status
+    except Exception as e:
+        logging.exception("Error creating payout request: e")
+        return jsonify({"error": str(e)}), 500
 
 # --- Firebase Entry Point ---
 @https_fn.on_request()
@@ -296,7 +331,46 @@ def main_function(request):
 #                     "bankAccountOwner": "test",
 #                     "fiatAndRailDetails": {
 #                         "type": "cop",
-#                         "symbol": "COP",
+#                         "symbol": "COP",#     sample_payload = {
+# #         "sourceAccountId": "639bb127-0b32-4e63-90fd-099356b046c6",
+# #         "memo": "December contract",
+# #         "payouts": [
+# #             {
+# #                 "amount": {
+# #                     "tokenSymbol": "USDC",
+# #                     "tokenAmount": 2
+# #                 },
+# #                 "payoutDetails": {
+# #                     "type": "fiat",
+# #                     "bankName": "Bancamia S.A.",
+# #                     "bankAccountOwner": "test",
+# #                     "fiatAndRailDetails": {
+# #                         "type": "cop",
+# #                         "symbol": "COP",
+# #                         "accountType": "CHECKING",
+# #                         "phoneNumber": "+57 601 555 5555",
+# #                         "bankAccountNumber": "1234567890123456",
+# #                         "documentNumber": "1234563",
+# #                         "documentType": "NATIONAL_ID"
+# #                     }
+# #                 },
+# #                 "recipientInfo": {
+# #                     "type": "individual",
+# #                     "firstName": "Javier",
+# #                     "lastName": "Gomez",
+# #                     "email": "jgomez@gmail.com",
+# #                     "dateOfBirth": "1980-02-22",
+# #                     "physicalAddress": {
+# #                         "address1": "Cra. 37 #10A 29",
+# #                         "country": "CO",
+# #                         "state": "Antioquia",
+# #                         "city": "Medellin",
+# #                         "zip": "050015"
+# #                     }
+# #                 }
+# #             }
+# #         ]
+# #     }
 #                         "accountType": "CHECKING",
 #                         "phoneNumber": "+57 601 555 5555",
 #                         "bankAccountNumber": "1234567890123456",
@@ -328,4 +402,4 @@ def main_function(request):
 #     # id_2 = '0f35fd95-7df8-4db1-89eb-0f4da070a2ef'
 #     # execute_payout_request(api_key,transfer_api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1',
 #     #                        id_2)
-#     # search_payout_requests(api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1')
+#     search_payout_requests(api_key, '9f6e67a5-f268-4ec2-a191-6f1fd799d9b1', {})

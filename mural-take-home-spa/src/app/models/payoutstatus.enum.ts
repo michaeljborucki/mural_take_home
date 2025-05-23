@@ -1,0 +1,8 @@
+export enum PayoutStatus {
+    AWAITING_EXECUTION = 'AWAITING_EXECUTION',
+    CANCELED = 'CANCELED',
+    PENDING = 'PENDING',
+    EXECUTED = 'EXECUTED',
+    FAILED = 'FAILED'
+  }
+  
