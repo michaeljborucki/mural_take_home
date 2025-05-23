@@ -1,0 +1,13 @@
+<mat-toolbar color="primary">
+  <div>
+    User Location: 
+    {{ userLocation }}
+    <span *ngIf="userWarning" style="color: red;"> {{ userWarning }}</span>
+  </div>
+  </mat-toolbar>
+<header class="header">
+  <a routerLink="/organizations">Organizations</a>
+  <a routerLink="/accounts">Accounts</a>
+</header>
+
+<router-outlet></router-outlet>

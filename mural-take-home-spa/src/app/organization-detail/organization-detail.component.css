@@ -1,0 +1,14 @@
+.icon-green {
+    color: #4caf50; /* Material green 500 */
+    vertical-align: middle;
+  }
+  
+.icon-red {
+  color: #f44336; /* Material red 500 */
+  vertical-align: middle;
+}
+
+.text-muted {
+  color: #888;
+  font-size: 0.85rem;
+}

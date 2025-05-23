@@ -1,0 +1,168 @@
+<mat-toolbar color="accent">Account Details</mat-toolbar>
+
+<mat-card *ngIf="account">
+  <h2>{{ account.name }}</h2>
+
+  <p><strong>Status:</strong> {{ account.status }}</p>
+
+  <p>
+    <strong>API Enabled:</strong>
+    <mat-icon [ngClass]="account.isApiEnabled ? 'icon-green' : 'icon-red'">
+      {{ account.isApiEnabled ? "check_circle" : "cancel" }}
+    </mat-icon>
+  </p>
+
+  <p><strong>Created At:</strong> {{ account.createdAt | date : "long" }}</p>
+  <p><strong>Updated At:</strong> {{ account.updatedAt | date : "long" }}</p>
+
+  <!-- Wallet Details -->
+  <h3 style="margin-top: 2rem">Wallet</h3>
+  <p>
+    <strong>Address:</strong>
+    {{ account.accountDetails.walletDetails.walletAddress }}
+  </p>
+  <p>
+    <strong>Blockchain:</strong>
+    {{ account.accountDetails.walletDetails.blockchain }}
+  </p>
+
+  <!-- Bank Info -->
+  <h3 style="margin-top: 2rem">Bank Details</h3>
+  <p>
+    <strong>Bank Name:</strong>
+    {{ account.accountDetails.depositAccount.bankName }}
+  </p>
+  <p>
+    <strong>Account Number:</strong>
+    {{ account.accountDetails.depositAccount.bankAccountNumber }}
+  </p>
+  <p>
+    <strong>Routing Number:</strong>
+    {{ account.accountDetails.depositAccount.bankRoutingNumber }}
+  </p>
+  <p>
+    <strong>Currency:</strong>
+    {{ account.accountDetails.depositAccount.currency }}
+  </p>
+  <p>
+    <strong>Status:</strong> {{ account.accountDetails.depositAccount.status }}
+  </p>
+
+  <!-- Token Balances -->
+  <h3 style="margin-top: 2rem">Token Balances</h3>
+  <table
+    mat-table
+    [dataSource]="account.accountDetails.balances"
+    class="mat-elevation-z8"
+    style="width: 100%; margin-top: 1rem"
+  >
+    <ng-container matColumnDef="tokenSymbol">
+      <th mat-header-cell *matHeaderCellDef>Token</th>
+      <td mat-cell *matCellDef="let balance">{{ balance.tokenSymbol }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="tokenAmount">
+      <th mat-header-cell *matHeaderCellDef>Amount</th>
+      <td mat-cell *matCellDef="let balance">{{ balance.tokenAmount }}</td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="['tokenSymbol', 'tokenAmount']"></tr>
+    <tr
+      mat-row
+      *matRowDef="let row; columns: ['tokenSymbol', 'tokenAmount']"
+    ></tr>
+  </table>
+
+  <!-- Payout Requests -->
+  <h3 style="margin-top: 2rem">Payout Requests</h3>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem;">
+    <h2>Payouts</h2>
+    <button mat-icon-button color="primary" (click)="openCreatePayoutDialog()">
+      <mat-icon>add</mat-icon>
+    </button>
+  </div>
+  
+  <table
+    mat-table
+    [dataSource]="payouts"
+    class="mat-elevation-z8"
+    style="width: 100%; margin-top: 1rem"
+    *ngIf="payouts && payouts.length > 0"
+  >
+    <ng-container matColumnDef="payoutId">
+      <th mat-header-cell *matHeaderCellDef>ID</th>
+      <td mat-cell *matCellDef="let payout">{{ payout.id }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let payout">
+        <ng-container *ngIf="payout.status === 'AWAITING_EXECUTION'; else statusText">
+          <button
+            mat-raised-button
+            class="green-btn"
+            (click)="onExecute(payout)"
+            [disabled]="executingPayoutIds.has(payout.id)"
+          >
+            <mat-spinner *ngIf="executingPayoutIds.has(payout.id)" diameter="20" strokeWidth="3"></mat-spinner>
+            <span *ngIf="!executingPayoutIds.has(payout.id)">Execute</span>
+          </button>
+        </ng-container>
+        <ng-template #statusText>
+          {{ payout.status }}
+        </ng-template>
+      </td>
+    </ng-container>
+    
+    
+
+    <ng-container matColumnDef="token">
+      <th mat-header-cell *matHeaderCellDef>Token</th>
+      <td mat-cell *matCellDef="let payout">
+        {{ payout.payouts?.[0]?.amount?.tokenAmount }} {{ payout.payouts?.[0]?.amount?.tokenSymbol }}
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="createdAt">
+      <th mat-header-cell *matHeaderCellDef>Created</th>
+      <td mat-cell *matCellDef="let payout">
+        {{ payout.createdAt | date : "short" }}
+      </td>
+    </ng-container>
+
+    <tr
+      mat-header-row
+      *matHeaderRowDef="['payoutId', 'status', 'token', 'createdAt']"
+    ></tr>
+    <tr
+      mat-row
+      *matRowDef="
+        let row;
+        columns: ['payoutId', 'status', 'token', 'createdAt']
+      "
+    ></tr>
+  </table>
+
+  <p
+    *ngIf="payouts && payouts.length === 0"
+    style="margin-top: 1rem; font-style: italic"
+  >
+    No payout requests found for this account.
+  </p>
+
+  <button
+    mat-raised-button
+    color="primary"
+    [routerLink]="['/organizations', orgId]"
+    style="margin-top: 2rem"
+  >
+    Back to Organization
+  </button>
+</mat-card>
+
+<mat-spinner
+  *ngIf="!account"
+  diameter="40"
+  style="margin: 2rem auto; display: block"
+></mat-spinner>

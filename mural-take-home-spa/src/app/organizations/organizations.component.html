@@ -1,0 +1,58 @@
+<mat-toolbar color="primary">
+  Organizations
+  <span class="spacer"></span>
+  <button mat-icon-button color="accent" (click)="openCreateDialog()" aria-label="Add Organization">
+    <mat-icon>add</mat-icon>
+  </button>
+</mat-toolbar>
+
+<!-- Organizations Table -->
+<mat-card>
+  <table mat-table [dataSource]="dataSource" class="mat-elevation-z8" style="width: 100%;">
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef> Name </th>
+      <td mat-cell *matCellDef="let org">
+        <a [routerLink]="['/organizations', org.id]" style="text-decoration: none; color: inherit;">
+          {{
+            org.name
+              ? org.name
+              : (org.firstName || '') + ' ' + (org.lastName || '')
+          }}
+        </a>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="type">
+      <th mat-header-cell *matHeaderCellDef> Type </th>
+      <td mat-cell *matCellDef="let org"> {{ org.type }} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="kycStatus">
+      <th mat-header-cell *matHeaderCellDef> KYC Status </th>
+      <td mat-cell *matCellDef="let org">
+        <ng-container *ngIf="org.kycStatus?.type === 'INACTIVE'; else kycText">
+          <a [href]="org.kycStatus.kycUrl" target="_blank">{{ org.id }}</a>
+        </ng-container>
+        <ng-template #kycText>{{ org.kycStatus?.type }}</ng-template>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="tosStatus">
+      <th mat-header-cell *matHeaderCellDef> TOS Status </th>
+      <td mat-cell *matCellDef="let org">
+        <ng-container *ngIf="org.tosStatus !== 'ACCEPTED'; else tosText">
+          <a [href]="org.tosStatus" target="_blank">{{ org.id }}</a>
+        </ng-container>
+        <ng-template #tosText>{{ org.tosStatus }}</ng-template>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="createdAt">
+      <th mat-header-cell *matHeaderCellDef> Created </th>
+      <td mat-cell *matCellDef="let org"> {{ org.createdAt | date:'short' }} </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</mat-card>

@@ -1,0 +1,137 @@
+<mat-toolbar color="accent">Organization Details</mat-toolbar>
+
+<mat-card *ngIf="organization">
+  <h2>{{ organization.name }}</h2>
+
+  <p><strong>Type:</strong> {{ organization.type.charAt(0).toUpperCase() + organization.type.slice(1).toLowerCase() }}</p>
+
+  <p><strong>KYC Status:</strong>
+    <ng-container [ngSwitch]="organization.kycStatus.type">
+      <ng-container *ngSwitchCase="'approved'">
+        <mat-icon class="icon-green">check_circle</mat-icon>
+        {{ organization.kycStatus.type }}
+      </ng-container>
+      <ng-container *ngSwitchCase="'INACTIVE'">
+        <a [href]="organization.kycStatus.kycUrl" target="_blank">{{ organization.id }}</a>
+      </ng-container>
+      <ng-container *ngSwitchDefault>
+        {{ organization.kycStatus.type }}
+      </ng-container>
+    </ng-container>
+  </p>
+
+  <p><strong>TOS Status:</strong>
+    <ng-container [ngSwitch]="organization.tosStatus">
+      <ng-container *ngSwitchCase="'ACCEPTED'">
+        <mat-icon class="icon-green">check_circle</mat-icon>
+        {{ organization.tosStatus }}
+      </ng-container>
+      <ng-container *ngSwitchCase="'INACTIVE'">
+        <a [href]="organization.tosStatus" target="_blank">{{ organization.id }}</a>
+      </ng-container>
+      <ng-container *ngSwitchDefault>
+        {{ organization.tosStatus }}
+      </ng-container>
+    </ng-container>
+  </p>
+
+  <p><strong>Created At:</strong> {{ organization.createdAt | date:'long' }}</p>
+  <p><strong>Updated At:</strong> {{ organization.updatedAt | date:'long' }}</p>
+
+  <!-- Currency Capabilities -->
+  <h3 style="margin-top: 2rem;">Currency Capabilities</h3>
+  <table mat-table [dataSource]="organization.currencyCapabilities" class="mat-elevation-z8" style="width: 100%; margin-top: 1rem;">
+    <ng-container matColumnDef="currencyCode">
+      <th mat-header-cell *matHeaderCellDef>Currency</th>
+      <td mat-cell *matCellDef="let row">{{ row.currencyCode }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="depositStatus">
+      <th mat-header-cell *matHeaderCellDef>Deposit Status</th>
+      <td mat-cell *matCellDef="let row">
+        <mat-icon [ngClass]="row.depositStatus.type === 'enabled' ? 'icon-green' : 'icon-red'">
+          {{ row.depositStatus.type === 'enabled' ? 'check_circle' : 'cancel' }}
+        </mat-icon>
+        <div *ngIf="row.depositStatus.details" class="text-muted small">
+          {{ row.depositStatus.details }}
+        </div>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="payOutStatus">
+      <th mat-header-cell *matHeaderCellDef>Payout Status</th>
+      <td mat-cell *matCellDef="let row">
+        <mat-icon [ngClass]="row.payOutStatus.type === 'enabled' ? 'icon-green' : 'icon-red'">
+          {{ row.payOutStatus.type === 'enabled' ? 'check_circle' : 'cancel' }}
+        </mat-icon>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="['currencyCode', 'depositStatus', 'payOutStatus']"></tr>
+    <tr mat-row *matRowDef="let row; columns: ['currencyCode', 'depositStatus', 'payOutStatus'];"></tr>
+  </table>
+
+  <!-- Accounts Section -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem;">
+  <h3 style="margin: 0;">Accounts</h3>
+  <button mat-icon-button color="accent" (click)="openCreateAccountDialog()" aria-label="Add Account">
+    <mat-icon>add</mat-icon>
+  </button>
+</div>
+  <table *ngIf="accounts?.length" mat-table [dataSource]="accounts" class="mat-elevation-z8" style="width: 100%; margin-top: 1rem;">
+    
+    <!-- Name -->
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef>Name</th>
+      <td mat-cell *matCellDef="let account">
+        <a [routerLink]="['/organizations', organization.id, 'accounts', account.id]" style="text-decoration: none; color: inherit;">
+          {{ account.name }}
+        </a>
+      </td>
+    </ng-container>
+
+
+    <!-- Status -->
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let account">{{ account.status }}</td>
+    </ng-container>
+
+    <!-- API Enabled -->
+    <ng-container matColumnDef="apiEnabled">
+      <th mat-header-cell *matHeaderCellDef>API Enabled</th>
+      <td mat-cell *matCellDef="let account">
+        <mat-icon [ngClass]="account.isApiEnabled ? 'icon-green' : 'icon-red'">
+          {{ account.isApiEnabled ? 'check_circle' : 'cancel' }}
+        </mat-icon>
+      </td>
+    </ng-container>
+
+    <!-- Token Amount -->
+    <ng-container matColumnDef="tokenAmount">
+      <th mat-header-cell *matHeaderCellDef>Token Amount</th>
+      <td mat-cell *matCellDef="let account">
+        {{ account.accountDetails.balances[0]?.tokenAmount ?? 0 }}
+      </td>
+    </ng-container>
+
+    <!-- Token Symbol -->
+    <ng-container matColumnDef="tokenSymbol">
+      <th mat-header-cell *matHeaderCellDef>Token Symbol</th>
+      <td mat-cell *matCellDef="let account">
+        {{ account.accountDetails.balances[0]?.tokenSymbol ?? '—' }}
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="accountDisplayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: accountDisplayedColumns;"></tr>
+  </table>
+
+  <p *ngIf="!accounts?.length" style="margin-top: 1rem;">No accounts available.</p>
+
+  <button mat-raised-button color="primary" routerLink="/organizations" style="margin-top: 2rem;">
+    Back to Organizations List
+  </button>
+</mat-card>
+
+<mat-spinner *ngIf="!organization" diameter="40" style="margin: 2rem auto; display: block;"></mat-spinner>

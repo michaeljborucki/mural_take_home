@@ -1,0 +1,63 @@
+<h2 mat-dialog-title>Create New Organization</h2>
+<form #orgForm="ngForm" (ngSubmit)="onSubmit()" style="padding: 1rem;">
+
+  <!-- Organization Type -->
+  <mat-form-field appearance="fill" style="width: 100%;">
+    <mat-label>Organization Type</mat-label>
+    <mat-select name="type" [(ngModel)]="formData.type" required #typeField="ngModel">
+      <mat-option value="individual">Individual</mat-option>
+      <mat-option value="business">Business</mat-option>
+    </mat-select>
+    <mat-error *ngIf="typeField.invalid && typeField.touched">Type is required.</mat-error>
+  </mat-form-field>
+
+  <!-- Individual Form -->
+  <div *ngIf="formData.type === 'individual'">
+    <mat-form-field appearance="fill" style="width: 100%;">
+      <mat-label>First Name</mat-label>
+      <input matInput name="firstName" [(ngModel)]="formData.firstName" required #firstName="ngModel" />
+      <mat-error *ngIf="firstName.invalid && firstName.touched">First name is required.</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" style="width: 100%;">
+      <mat-label>Last Name</mat-label>
+      <input matInput name="lastName" [(ngModel)]="formData.lastName" required #lastName="ngModel" />
+      <mat-error *ngIf="lastName.invalid && lastName.touched">Last name is required.</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" style="width: 100%;">
+      <mat-label>Email</mat-label>
+      <input matInput name="email" [(ngModel)]="formData.email" required email #email="ngModel" />
+      <mat-error *ngIf="email.invalid && email.touched">
+        <span *ngIf="email.errors?.['required']">Email is required.</span>
+        <span *ngIf="email.errors?.['email']">Invalid email format.</span>
+      </mat-error>
+    </mat-form-field>
+  </div>
+
+  <!-- Business Form -->
+  <div *ngIf="formData.type === 'business'">
+    <mat-form-field appearance="fill" style="width: 100%;">
+      <mat-label>Business Name</mat-label>
+      <input matInput name="businessName" [(ngModel)]="formData.businessName" required #businessName="ngModel" />
+      <mat-error *ngIf="businessName.invalid && businessName.touched">Business name is required.</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" style="width: 100%;">
+      <mat-label>Email</mat-label>
+      <input matInput name="email" [(ngModel)]="formData.email" required email #email="ngModel" />
+      <mat-error *ngIf="email.invalid && email.touched">
+        <span *ngIf="email.errors?.['required']">Email is required.</span>
+        <span *ngIf="email.errors?.['email']">Invalid email format.</span>
+      </mat-error>
+    </mat-form-field>
+  </div>
+
+  <!-- Buttons -->
+  <div style="margin-top: 1rem; text-align: right;">
+    <button mat-button type="button" (click)="onCancel()">Cancel</button>
+    <button mat-raised-button color="primary" type="submit" [disabled]="!orgForm.valid || isSubmitting">
+      {{ isSubmitting ? 'Creating...' : 'Create' }}
+    </button>
+  </div>
+</form>

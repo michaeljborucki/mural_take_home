@@ -1,0 +1,10 @@
+{
+  "/api": {
+    "target": "http://localhost:5001/mural-take-home-e3b8b/us-central1",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api": "/main_function"
+    }
+  }
+}
