@@ -5,12 +5,12 @@ export interface Account {
     isApiEnabled: boolean;
     createdAt: string;
     updatedAt: string;
-    accountDetails: {
-      balances: {
+    accountDetails?: {
+      balances?: {
         tokenAmount: number;
         tokenSymbol: string;
       }[];
-      depositAccount: {
+      depositAccount?: {
         accountId: string;
         bankAccountNumber: string;
         bankAddress: string;
@@ -23,7 +23,7 @@ export interface Account {
         paymentRails: string[];
         status: string;
       };
-      walletDetails: {
+      walletDetails?: {
         blockchain: string;
         walletAddress: string;
       };

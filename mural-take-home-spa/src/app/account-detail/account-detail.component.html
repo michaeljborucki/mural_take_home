@@ -19,40 +19,40 @@
   <h3 style="margin-top: 2rem">Wallet</h3>
   <p>
     <strong>Address:</strong>
-    {{ account.accountDetails.walletDetails.walletAddress }}
+    {{ account.accountDetails?.walletDetails?.walletAddress }}
   </p>
   <p>
     <strong>Blockchain:</strong>
-    {{ account.accountDetails.walletDetails.blockchain }}
+    {{ account.accountDetails?.walletDetails?.blockchain }}
   </p>
 
   <!-- Bank Info -->
   <h3 style="margin-top: 2rem">Bank Details</h3>
   <p>
     <strong>Bank Name:</strong>
-    {{ account.accountDetails.depositAccount.bankName }}
+    {{ account.accountDetails?.depositAccount?.bankName }}
   </p>
   <p>
     <strong>Account Number:</strong>
-    {{ account.accountDetails.depositAccount.bankAccountNumber }}
+    {{ account.accountDetails?.depositAccount?.bankAccountNumber }}
   </p>
   <p>
     <strong>Routing Number:</strong>
-    {{ account.accountDetails.depositAccount.bankRoutingNumber }}
+    {{ account.accountDetails?.depositAccount?.bankRoutingNumber }}
   </p>
   <p>
     <strong>Currency:</strong>
-    {{ account.accountDetails.depositAccount.currency }}
+    {{ account.accountDetails?.depositAccount?.currency }}
   </p>
   <p>
-    <strong>Status:</strong> {{ account.accountDetails.depositAccount.status }}
+    <strong>Status:</strong> {{ account.accountDetails?.depositAccount?.status }}
   </p>
 
   <!-- Token Balances -->
   <h3 style="margin-top: 2rem">Token Balances</h3>
   <table
     mat-table
-    [dataSource]="account.accountDetails.balances"
+    [dataSource]="account.accountDetails?.balances || []"
     class="mat-elevation-z8"
     style="width: 100%; margin-top: 1rem"
   >
@@ -80,7 +80,7 @@
       <mat-icon>add</mat-icon>
     </button>
   </div>
-  
+
   <table
     mat-table
     [dataSource]="payouts"
@@ -112,8 +112,6 @@
         </ng-template>
       </td>
     </ng-container>
-    
-    
 
     <ng-container matColumnDef="token">
       <th mat-header-cell *matHeaderCellDef>Token</th>

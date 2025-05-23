@@ -1,5 +1,6 @@
-firebase_functions~=0.1.0
-firebase_admin
-flask
-google-cloud-secret-manager
+firebase-admin
+firebase-functions
+Flask
 flask-cors
+google-cloud-secret-manager
+requests

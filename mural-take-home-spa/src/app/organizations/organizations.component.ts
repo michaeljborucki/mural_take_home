@@ -78,12 +78,7 @@ export class OrganizationsComponent {
   
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.organizationService.createOrganization(result).subscribe({
-          next: (createdOrg) => {
-            this.fetchOrganizations(); // ✅ fetch latest list
-          },
-          error: (err) => console.error('Failed to create organization:', err)
-        });
+        this.fetchOrganizations(); // Just refresh the list since the dialog already created the organization
       }
     });
   }

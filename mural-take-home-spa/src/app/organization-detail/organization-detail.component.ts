@@ -80,10 +80,25 @@ export class OrganizationDetailComponent implements OnInit {
     const dialogRef = this.dialog.open(CreateAccountDialogComponent);
 
     dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
-        // Add to accounts array or make API call
-        this.accounts = [result, ...(this.accounts || [])];
+      if (!result || !this.organization?.id) {
+        return;
       }
+
+      // Remove description if it's an empty string
+      if (result.description === '') {
+        const { description, ...resultWithoutDescription } = result;
+        result = resultWithoutDescription;
+      }
+      
+      const orgId = this.organization.id;
+      this.accountsService.createAccount(orgId, result).subscribe({
+        next: (createdAccount) => {
+          this.accounts = [createdAccount, ...(this.accounts || [])];
+        },
+        error: (err) => {
+          console.error('Failed to create account:', err);
+        }
+      });
     });
   }
 }

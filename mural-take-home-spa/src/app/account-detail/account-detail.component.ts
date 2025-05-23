@@ -40,6 +40,8 @@ export class AccountDetailComponent implements OnInit {
   payouts: Payout[] = [];
   executingPayoutIds = new Set<string>();
   payoutDisplayedColumns = ['id', 'status', 'amount', 'fiat', 'fiatStatus', 'createdAt'];
+  loadingPayouts = false;
+  payoutError: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -65,16 +67,28 @@ export class AccountDetailComponent implements OnInit {
   }
 
   private loadPayouts(): void {
+    this.loadingPayouts = true;
+    this.payoutError = null;
+
     const basePayload = {
       filter: {
         type: 'payoutStatus',
-        statuses: Object.values(PayoutStatus) // ['AWAITING_EXECUTION', ...]
+        statuses: Object.values(PayoutStatus)
       }
     };
 
+    console.log('Loading payouts with payload:', basePayload);
     this.payoutService.getPayoutData(this.orgId, this.accountId, basePayload).subscribe({
-      next: (data: Payout[]) => (this.payouts = data),
-      error: (err) => console.error('Failed to fetch payouts:', err)
+      next: (data: Payout[]) => {
+        console.log('Received payouts data:', data);
+        this.payouts = data;
+        this.loadingPayouts = false;
+      },
+      error: (err: Error) => {
+        console.error('Failed to fetch payouts:', err);
+        this.payoutError = err.message;
+        this.loadingPayouts = false;
+      }
     });
   }
 
@@ -98,20 +112,26 @@ export class AccountDetailComponent implements OnInit {
   }
 
   openCreatePayoutDialog(): void {
-      const dialogRef = this.dialog.open(CreatePayoutDetailDialogComponent, {
-        width: '600px',
-        autoFocus: false,
-        scrollStrategy: this.overlay.scrollStrategies.reposition()
-      });
-    
-      dialogRef.afterClosed().subscribe((result) => {
-        if (result) {
-          if (result.sourceAccountId === ''){
-            result.sourceAccountId = this.accountId
-          }
-          this.payoutService.createPayout(this.orgId, result).subscribe({
-          });
+    const dialogRef = this.dialog.open(CreatePayoutDetailDialogComponent, {
+      width: '600px',
+      autoFocus: false,
+      scrollStrategy: this.overlay.scrollStrategies.reposition()
+    });
+  
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        if (result.sourceAccountId === '') {
+          result.sourceAccountId = this.accountId;
         }
-      });
-    }
+        this.payoutService.createPayout(this.orgId, result).subscribe({
+          next: (createdPayout: Payout) => {
+            this.payouts = [createdPayout, ...this.payouts];
+          },
+          error: (err: Error) => {
+            console.error('Failed to create payout:', err);
+          }
+        });
+      }
+    });
+  }
 }

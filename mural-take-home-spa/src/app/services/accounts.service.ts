@@ -20,4 +20,8 @@ export class AccountsService {
   getAccountData(orgId: string, accountId: string): Observable<Account> {
     return this.http.get<Account>(`${this.accountEndpoint}/${orgId}/${accountId}`);
   }
+
+  createAccount(orgId: string, request: any): Observable<Account> {
+    return this.http.post<Account>(`${this.accountEndpoint}/${orgId}`, request);
+  }
 }

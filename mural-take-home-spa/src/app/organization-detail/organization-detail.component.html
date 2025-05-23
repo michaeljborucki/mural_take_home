@@ -111,7 +111,7 @@
     <ng-container matColumnDef="tokenAmount">
       <th mat-header-cell *matHeaderCellDef>Token Amount</th>
       <td mat-cell *matCellDef="let account">
-        {{ account.accountDetails.balances[0]?.tokenAmount ?? 0 }}
+        {{ account.accountDetails?.balances?.[0]?.tokenAmount ?? 0 }}
       </td>
     </ng-container>
 
@@ -119,7 +119,7 @@
     <ng-container matColumnDef="tokenSymbol">
       <th mat-header-cell *matHeaderCellDef>Token Symbol</th>
       <td mat-cell *matCellDef="let account">
-        {{ account.accountDetails.balances[0]?.tokenSymbol ?? '—' }}
+        {{ account.accountDetails?.balances?.[0]?.tokenSymbol ?? '—' }}
       </td>
     </ng-container>
 

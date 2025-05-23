@@ -10,13 +10,7 @@
         "firebase-debug.*.log",
         "*.local"
       ],
-      "runtime": "python313",
-      "rewrites": [
-        {
-          "source": "/api/**",
-          "function": "main_function"
-        }
-      ]
+      "runtime": "python313"
     }
   ],
   "hosting": {

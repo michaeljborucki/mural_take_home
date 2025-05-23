@@ -23,10 +23,12 @@ export class PayoutService {
     const url = `${this.payoutEndpoint}/${org_id}/${acc_id}/${payout_id}`;
     return this.http.post<Payout>(url, {});
   }
-  createPayout(org_id:string, request_body: PayoutRequest): any{
+
+  createPayout(org_id: string, request_body: PayoutRequest): any {
     const url = `${this.payoutEndpoint}/create/${org_id}`;
     return this.http.post<Payout>(url, request_body);
   }
+
   // // Returns details of a single organization
   // getOrganizationData(orgId: string): Observable<Organization> {
   //   return this.http.get<Organization>(`${this.organizationApiURL}/${orgId}`);
